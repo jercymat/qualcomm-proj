@@ -58,6 +58,7 @@ if __name__ == "__main__":
     topo = UEAcessTopo()
     ctrl = RemoteController('ue-c0', ip="127.0.0.1", port=6633)
     net = Mininet(topo=topo, controller=ctrl)
+    # net = Mininet(topo=topo, controller=ctrl, switch=OVSBridge)
 
     info('*** Connecting NS3 Simple Link\n')
     for i in range(2, 4):
