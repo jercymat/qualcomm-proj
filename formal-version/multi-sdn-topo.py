@@ -22,7 +22,7 @@ def DistrubutedSBANet():
     info('|      Yu Chiao Hsu, Han Hsuan Lin      |\n')
     info('-----------------------------------------\n')
 
-    net = Mininet(controller=None, switch=OVSSwitch, link=TCLink)
+    net = Mininet(controller=None, switch=OVSSwitch, link=TCLink, autoSetMacs=True)
     # net = Mininet(controller=None, switch=OVSBridge, link=TCLink)
 
     ue_access_component(net, 6661)
@@ -30,9 +30,10 @@ def DistrubutedSBANet():
     nfv_service_component(net, 'eMBB', 6681)
     nfv_service_component(net, 'mMTC', 6691)
 
-    # net.addLink(switches['ue'][0], switches['n_urllc'][0])
-    # net.addLink(switches['ue'][0], switches['n_embb'][0])
-    # net.addLink(switches['ue'][0], switches['n_mmtc'][0])
+    # Link UE switch 2-2 to NFV Services' controllers
+    net.addLink(switches['ue'][3], switches['n_URLLC'][0])
+    net.addLink(switches['ue'][3], switches['n_eMBB'][0])
+    net.addLink(switches['ue'][3], switches['n_mMTC'][0])
 
     return net
 
