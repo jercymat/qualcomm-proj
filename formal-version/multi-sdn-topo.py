@@ -50,9 +50,9 @@ def ue_access_component(net, controller_port=6661):
         net.addSwitch('ue_s2_2')
     ]
     hosts['ue'] = [
-        net.addHost('ue_URLLC_h'),
-        net.addHost('ue_eMBB_h'),
-        net.addHost('ue_mMTC_h')
+        net.addHost('ue_URLLC_h', ip='10.0.0.71'),
+        net.addHost('ue_eMBB_h', ip='10.0.0.81'),
+        net.addHost('ue_mMTC_h', ip='10.0.0.91')
     ]
     # Add link between switches
     # for i in range(3):
