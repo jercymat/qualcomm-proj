@@ -126,11 +126,11 @@ class EastWestAPI(ControllerBase):
             'EMBB': 'e9406f9b456569f230a23d21464189f2',
             'MMTC': '1d99331a7879c3c5b90998f8c3c6a9d6'
         }
-        self.unauthorized = Response(
+        self.unauthenticated = Response(
             status=401,
             content_type='application/json',
             body=json.dumps(
-                {'error': 'unauthorized'},
+                {'error': 'unauthenticated'},
                 indent=4
             ) + '\n'
         )
@@ -153,9 +153,9 @@ class EastWestAPI(ControllerBase):
             if req.headers['Authentication'] in self.authentication.values():
                 return Response(content_type='application/json', body=body)
             else:
-                return self.unauthorized
+                return self.unauthenticated
         else:
-            return self.unauthorized
+            return self.unauthenticated
 
     @route('post-test', '/echo-post', methods=['POST'])
     def _echo_post(self, req, **kwargs):
@@ -166,6 +166,6 @@ class EastWestAPI(ControllerBase):
             if req.headers['Authentication'] in self.authentication.values():
                 return Response(content_type='application/json', body=body)
             else:
-                return self.unauthorized
+                return self.unauthenticated
         else:
-            return self.unauthorized
+            return self.unauthenticated
