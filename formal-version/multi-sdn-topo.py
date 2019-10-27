@@ -25,15 +25,46 @@ def DistrubutedSBANet():
     net = Mininet(controller=None, switch=OVSSwitch, link=TCLink, autoSetMacs=True)
     # net = Mininet(controller=None, switch=OVSBridge, link=TCLink)
 
+    # UE Access Component
     ue_access_component(net, 6661)
+
+    # NFV Service Component
     nfv_service_component(net, 'URLLC', 6671)
     nfv_service_component(net, 'eMBB', 6681)
     nfv_service_component(net, 'mMTC', 6691)
 
-    # Link UE switch 2-2 to NFV Services' controllers
-    net.addLink(switches['ue'][3], switches['n_URLLC'][0])
-    net.addLink(switches['ue'][3], switches['n_eMBB'][0])
-    net.addLink(switches['ue'][3], switches['n_mMTC'][0])
+    # SBA Entity Component
+    sba_entity_component(net, 'sbus', 7001, bus=True)
+    sba_entity_component(net, 'NRF', 7011)
+    sba_entity_component(net, 'AUSF', 7021)
+    sba_entity_component(net, 'UDM', 7031)
+    sba_entity_component(net, 'AMF', 7041)
+    sba_entity_component(net, 'SMF', 7051)
+    sba_entity_component(net, 'PCF', 7061)
+    sba_entity_component(net, 'AF', 7071)
+
+    # Link UE switch 1-2 to NFV Services' controllers
+    net.addLink(switches['ue'][1], switches['n_URLLC'][0])
+    net.addLink(switches['ue'][1], switches['n_eMBB'][0])
+    net.addLink(switches['ue'][1], switches['n_mMTC'][0])
+
+    # Link NFV Services to sbus
+    net.addLink(switches['n_URLLC'][0], switches['s_sbus'][0])
+    net.addLink(switches['n_eMBB'][0], switches['s_sbus'][0])
+    net.addLink(switches['n_mMTC'][0], switches['s_sbus'][0])
+
+    # Link SBA Entities to sbus
+    net.addLink(switches['s_sbus'][0], switches['s_NRF'][0])
+    net.addLink(switches['s_sbus'][0], switches['s_AUSF'][0])
+    net.addLink(switches['s_sbus'][0], switches['s_UDM'][0])
+    net.addLink(switches['s_sbus'][0], switches['s_AMF'][0])
+    net.addLink(switches['s_sbus'][0], switches['s_SMF'][0])
+    net.addLink(switches['s_sbus'][0], switches['s_PCF'][0])
+    net.addLink(switches['s_sbus'][0], switches['s_AF'][0])
+
+    # info(str(controllers) + '\n')
+    # info(str(switches) + '\n')
+    # info(str(hosts) + '\n')
 
     return net
 
@@ -77,22 +108,51 @@ def nfv_service_component(net, scenario=None, controller_port=6671):
         return
 
     # Add controllers, switches and hosts
-    COMP_NAME = 'n_{}'.format(scenario)
+    SERV_NAME = 'n_{}'.format(scenario)
     info('*** Starting NFV Service-{} Controller at {}\n'.format(scenario, controller_port))
-    controllers[COMP_NAME] = net.addController(
-        COMP_NAME + '_c0',
+    controllers[SERV_NAME] = net.addController(
+        SERV_NAME + '_c0',
         controller=RemoteController,
         port=controller_port
     )
-    switches[COMP_NAME] = [
-        net.addSwitch(COMP_NAME + '_s0')
+    switches[SERV_NAME] = [
+        net.addSwitch(SERV_NAME + '_s0')
     ]
-    hosts[COMP_NAME] = [
-        net.addHost(COMP_NAME + '_h0'),
+    hosts[SERV_NAME] = [
+        net.addHost(SERV_NAME + '_h0'),
     ]
 
     # Add link between switch and host
-    net.addLink(switches[COMP_NAME][0], hosts[COMP_NAME][0])
+    net.addLink(switches[SERV_NAME][0], hosts[SERV_NAME][0])
+
+
+def sba_entity_component(net, name=None, controller_port=7011, bus=False):
+    "add SBA Entity Component Topo"
+    if not name:
+        info('*** SBA Entity Name Missing ***\n')
+        return
+
+    # Add controllers, switches and hosts
+    ENT_NAME = 's_{}'.format(name)
+    if not bus:
+        info('*** Starting SBA Entity-{} Controller at {}\n'.format(name, controller_port))
+    else:
+        info('*** Starting SBA BUS Controller at {}\n'.format(controller_port))
+    controllers[ENT_NAME] = net.addController(
+        ENT_NAME + '_c0',
+        controller=RemoteController,
+        port=controller_port
+    )
+    switches[ENT_NAME] = [
+        net.addSwitch(ENT_NAME + '_s0')
+    ]
+    if not bus:
+        hosts[ENT_NAME] = [
+            net.addHost(ENT_NAME + '_h0'),
+        ]
+
+        # Add link between switch and host
+        net.addLink(switches[ENT_NAME][0], hosts[ENT_NAME][0])
 
 
 if __name__ == "__main__":
