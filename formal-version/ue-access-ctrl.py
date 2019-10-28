@@ -4,8 +4,7 @@ from ryu.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_3
 from ryu.lib.packet import packet
-from ryu.lib.packet import ethernet
-from ryu.lib.packet import ether_types
+from ryu.lib.packet import ethernet, ether_types, arp
 
 # REST Api Packages
 import json
@@ -22,7 +21,8 @@ class UEAccessCtrl(app_manager.RyuApp):
 
     def __init__(self, *args, **kwargs):
         super(UEAccessCtrl, self).__init__(*args, **kwargs)
-        self.mac_to_port = {}
+        self.mac_to_port = {}  # mac address to inbound port table
+        self.arp_broadcast = {}  # arp broadcast inbound port table
         wsgi = kwargs['wsgi']
         wsgi.register(EastWestAPI, {ue_instance_name: self})
 
@@ -74,18 +74,36 @@ class UEAccessCtrl(app_manager.RyuApp):
 
         pkt = packet.Packet(msg.data)
         eth = pkt.get_protocols(ethernet.ethernet)[0]
-
-        if eth.ethertype == ether_types.ETH_TYPE_LLDP:
-            # ignore lldp packet
-            return
         dst = eth.dst
         src = eth.src
-
         dpid = datapath.id
+
+        # ignore lldp and ipv6 packet
+        if eth.ethertype == ether_types.ETH_TYPE_LLDP or eth.ethertype == ether_types.ETH_TYPE_IPV6:
+            return
+
+        header_list = dict((p.protocol_name, p) for p in pkt.protocols if type(p) != str)
+        # self.logger.info(header_list)
+
+        self.logger.info("Packet In: %s %s -> %s | port:%s", dpid, src, dst, in_port)
+
+        if eth.ethertype == ether_types.ETH_TYPE_ARP and dst == "ff:ff:ff:ff:ff:ff":
+            arp_dst_ip = pkt.get_protocol(arp.arp).dst_ip
+            if (dpid, src, arp_dst_ip) in self.arp_broadcast:
+                if self.arp_broadcast[(dpid, src, arp_dst_ip)] != in_port:
+                    out = datapath.ofproto_parser.OFPPacketOut(
+                        datapath=datapath,
+                        buffer_id=datapath.ofproto.OFP_NO_BUFFER,
+                        in_port=in_port,
+                        actions=[], data=None)
+                    datapath.send_msg(out)
+                    self.logger.info('ARP Loop Maker Dropped!')
+
+                    return
+            else:  # learn arp broadcast table
+                self.arp_broadcast[(dpid, src, arp_dst_ip)] = in_port
+
         self.mac_to_port.setdefault(dpid, {})
-
-        self.logger.info("packet in %s %s %s %s", dpid, src, dst, in_port)
-
         # learn a mac address to avoid FLOOD next time.
         self.mac_to_port[dpid][src] = in_port
 
@@ -161,6 +179,22 @@ class EastWestAPI(ControllerBase):
     def _echo_post(self, req, **kwargs):
         rx = json.loads(req.body)
         body = json.dumps(rx, indent=4) + '\n'
+
+        if 'Authentication' in req.headers:
+            if req.headers['Authentication'] in self.authentication.values():
+                return Response(content_type='application/json', body=body)
+            else:
+                return self.unauthenticated
+        else:
+            return self.unauthenticated
+    
+    @route('arp-table', '/arp-table', methods=['GET'])
+    def _arp_table(self, req, **kwargs):
+        arp_broadcast = self.UE_app.arp_broadcast
+        arp_str_table = {}
+        for key in arp_broadcast.keys():
+            arp_str_table[str(key)] = arp_broadcast[key]
+        body = json.dumps(arp_str_table, indent=4) + '\n'
 
         if 'Authentication' in req.headers:
             if req.headers['Authentication'] in self.authentication.values():
