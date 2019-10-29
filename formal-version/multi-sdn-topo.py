@@ -87,12 +87,9 @@ def ue_access_component(net, controller_port=6661):
         net.addHost('ue_mMTC_h', ip='10.0.0.91')
     ]
     # Add link between switches
-    # for i in range(3):
-    #     for j in range(i + 1, 4):
-    #         net.addLink(switches['ue'][i], switches['ue'][j])
-
-    for i in range(1, 4):
-        net.addLink(switches['ue'][0], switches['ue'][i])
+    for i in range(3):
+        for j in range(i + 1, 4):
+            net.addLink(switches['ue'][i], switches['ue'][j])
 
     # Add Link Between s2-1, s2-2 Switch and Hosts
     for i in range(2, 4):
