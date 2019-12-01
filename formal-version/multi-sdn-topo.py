@@ -29,19 +29,19 @@ def DistrubutedSBANet():
     ue_access_component(net, 6661)
 
     # NFV Service Component
-    nfv_service_component(net, 'URLLC', 6671)
-    nfv_service_component(net, 'eMBB', 6681)
-    nfv_service_component(net, 'mMTC', 6691)
+    nfv_service_component(net, 'URLLC', 6671, 1)
+    nfv_service_component(net, 'eMBB', 6681, 2)
+    nfv_service_component(net, 'mMTC', 6691, 3)
 
     # SBA Entity Component
     sba_entity_component(net, 'sbus', 7001, bus=True)
-    sba_entity_component(net, 'NRF', 7011)
-    sba_entity_component(net, 'AUSF', 7021)
-    sba_entity_component(net, 'UDM', 7031)
-    sba_entity_component(net, 'AMF', 7041)
-    sba_entity_component(net, 'SMF', 7051)
-    sba_entity_component(net, 'PCF', 7061)
-    sba_entity_component(net, 'AF', 7071)
+    sba_entity_component(net, 'NRF', 7011, 1)
+    sba_entity_component(net, 'AUSF', 7021, 2)
+    sba_entity_component(net, 'UDM', 7031, 3)
+    sba_entity_component(net, 'AMF', 7041, 4)
+    sba_entity_component(net, 'SMF', 7051, 5)
+    sba_entity_component(net, 'PCF', 7061, 6)
+    sba_entity_component(net, 'AF', 7071, 7)
 
     # Link UE switch 1-2 to NFV Services' controllers
     net.addLink(switches['ue'][1], switches['n_URLLC'][0])
@@ -82,9 +82,9 @@ def ue_access_component(net, controller_port=6661):
         net.addSwitch('ue_s2_2')
     ]
     hosts['ue'] = [
-        net.addHost('ue_URLLC_h', ip='10.0.0.71'),
-        net.addHost('ue_eMBB_h', ip='10.0.0.81'),
-        net.addHost('ue_mMTC_h', ip='10.0.0.91')
+        net.addHost('ue_URLLC_h', ip='10.0.1.1'),
+        net.addHost('ue_eMBB_h', ip='10.0.1.2'),
+        net.addHost('ue_mMTC_h', ip='10.0.1.3')
     ]
     # Add link between switches
     for i in range(3):
@@ -98,7 +98,7 @@ def ue_access_component(net, controller_port=6661):
             SimpleLink(switches['ue'][i], host)
 
 
-def nfv_service_component(net, scenario=None, controller_port=6671):
+def nfv_service_component(net, scenario=None, controller_port=6671, no=1):
     "add NFV Service Component topo"
     if not scenario:
         info('*** NFV Scenario Missing ***\n')
@@ -116,14 +116,14 @@ def nfv_service_component(net, scenario=None, controller_port=6671):
         net.addSwitch(SERV_NAME + '_s0')
     ]
     hosts[SERV_NAME] = [
-        net.addHost(SERV_NAME + '_h0'),
+        net.addHost(SERV_NAME + '_h0', ip='20.0.1.' + str(no)),
     ]
 
     # Add link between switch and host
     net.addLink(switches[SERV_NAME][0], hosts[SERV_NAME][0])
 
 
-def sba_entity_component(net, name=None, controller_port=7011, bus=False):
+def sba_entity_component(net, name=None, controller_port=7011, no=1, bus=False):
     "add SBA Entity Component Topo"
     if not name:
         info('*** SBA Entity Name Missing ***\n')
@@ -145,7 +145,7 @@ def sba_entity_component(net, name=None, controller_port=7011, bus=False):
     ]
     if not bus:
         hosts[ENT_NAME] = [
-            net.addHost(ENT_NAME + '_h0'),
+            net.addHost(ENT_NAME + '_h0', ip='30.0.1.' + str(no)),
         ]
 
         # Add link between switch and host
