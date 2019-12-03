@@ -87,7 +87,6 @@ def add_ue(net, name, ip='10.0.0.101'):
     net.addLink(switches['uam'][0], hosts['ue_' + name][0])
 
 
-
 def ue_access_component(net, controller_port=6661):
     "add UE Access Component topo"
 
