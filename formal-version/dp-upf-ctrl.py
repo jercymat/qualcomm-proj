@@ -12,19 +12,19 @@ import logging
 from ryu.app.wsgi import WSGIApplication, ControllerBase, route
 from webob import Response
 
-sba_instance_name = 'SBA_SBUS'
+dp_instance_name = 'DP_UPF'
 
 
-class SBAsbusCtrl(app_manager.RyuApp):
+class DPupfCtrl(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
     _CONTEXTS = {'wsgi': WSGIApplication}
 
     def __init__(self, *args, **kwargs):
-        super(SBAsbusCtrl, self).__init__(*args, **kwargs)
+        super(DPupfCtrl, self).__init__(*args, **kwargs)
         self.mac_to_port = {}  # mac address to inbound port table
         self.arp_broadcast = {}  # arp broadcast inbound port table
         wsgi = kwargs['wsgi']
-        wsgi.register(EastWestAPI, {sba_instance_name: self})
+        wsgi.register(EastWestAPI, {dp_instance_name: self})
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
@@ -134,7 +134,7 @@ class SBAsbusCtrl(app_manager.RyuApp):
 class EastWestAPI(ControllerBase):
     def __init__(self, req, link, data, **config):
         super(EastWestAPI, self).__init__(req, link, data, **config)
-        self.SBUS_app = data[sba_instance_name]
+        self.UPF_app = data[dp_instance_name]
         self.logger = logging.getLogger(self.__class__.__name__)
         self.authentication = {
             'TEST': '033bd94b1168d7e4f0d644c3c95e35bf',
@@ -153,8 +153,8 @@ class EastWestAPI(ControllerBase):
 
     @route('mac-port-table', '/mac-port-table', methods=['GET'])
     def _mac_port_table(self, req, **kwargs):
-        SBUS_app = self.SBUS_app
-        body = json.dumps(SBUS_app.mac_to_port, indent=4) + '\n'
+        UPF_app = self.UPF_app
+        body = json.dumps(UPF_app.mac_to_port, indent=4) + '\n'
 
         if 'Authentication' in req.headers:
             if req.headers['Authentication'] in self.authentication.values():
@@ -166,7 +166,7 @@ class EastWestAPI(ControllerBase):
 
     @route('arp-table', '/arp-table', methods=['GET'])
     def _arp_table(self, req, **kwargs):
-        arp_broadcast = self.SBUS_app.arp_broadcast
+        arp_broadcast = self.UPF_app.arp_broadcast
         arp_str_table = {}
         for key in arp_broadcast.keys():
             arp_str_table[str(key)] = arp_broadcast[key]
