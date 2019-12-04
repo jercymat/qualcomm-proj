@@ -165,7 +165,7 @@ class EastWestAPI(ControllerBase):
     @route('mac-port-table', '/mac-port-table', methods=['GET'])
     def _mac_port_table(self, req, **kwargs):
         UE_app = self.UE_app
-        body = json.dumps(UE_app.mac_to_port, indent=4) + '\n'
+        body = json.dumps(UE_app.mac_to_port, indent=4, sort_keys=True) + '\n'
 
         if 'Authentication' in req.headers:
             if req.headers['Authentication'] in self.authentication.values():
@@ -178,7 +178,7 @@ class EastWestAPI(ControllerBase):
     @route('post-test', '/echo-post', methods=['POST'])
     def _echo_post(self, req, **kwargs):
         rx = json.loads(req.body)
-        body = json.dumps(rx, indent=4) + '\n'
+        body = json.dumps(rx, indent=4, sort_keys=True) + '\n'
 
         if 'Authentication' in req.headers:
             if req.headers['Authentication'] in self.authentication.values():
@@ -194,7 +194,7 @@ class EastWestAPI(ControllerBase):
         arp_str_table = {}
         for key in arp_broadcast.keys():
             arp_str_table[str(key)] = arp_broadcast[key]
-        body = json.dumps(arp_str_table, indent=4) + '\n'
+        body = json.dumps(arp_str_table, indent=4, sort_keys=True) + '\n'
 
         if 'Authentication' in req.headers:
             if req.headers['Authentication'] in self.authentication.values():
