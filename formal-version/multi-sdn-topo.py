@@ -8,10 +8,13 @@ from mininet.log import setLogLevel, info
 
 # import mininet.ns3
 # from mininet.ns3 import SimpleLink
+import pprint
 
 controllers = {}
 switches = {}
 hosts = {}
+
+dpid_cnt = 1
 
 
 def DistrubutedSBANet():
@@ -68,9 +71,9 @@ def DistrubutedSBANet():
     net.addLink(switches['uam'][0], switches['d_UPF'][0])
 
     # Add UE
-    add_ue(net, 'URLLC', '10.0.0.101')
-    add_ue(net, 'eMBB', '10.0.0.102')
-    add_ue(net, 'mMTC', '10.0.0.103')
+    add_ue(net, 'URLLC', '10.0.1.101')
+    add_ue(net, 'eMBB', '10.0.1.102')
+    add_ue(net, 'mMTC', '10.0.1.103')
 
     return net
 
@@ -91,7 +94,7 @@ def ue_access_component(net, controller_port=6661):
     "add UE Access Component topo"
 
     info('*** Starting UE Access Controller at {}\n'.format(controller_port))
-    add_subsystem(net, 'uam', controller_port, '10.0.0.1', 1)
+    add_subsystem(net, 'uam', controller_port, '10.0.1.1', 1)
 
 
 def nfv_service_component(net, scenario=None, controller_port=6671, no=1):
@@ -128,6 +131,8 @@ def data_plane(net, controller_port=8001):
 
 def add_subsystem(net, name=None, controller_port=6661, host_ip='10.0.0.1', switch_cnt=1):
     "Add a SDN-based subsystem"
+    global dpid_cnt
+
     if not name:
         info('*** Subsystem Name Missing ***\n')
         return
@@ -137,10 +142,14 @@ def add_subsystem(net, name=None, controller_port=6661, host_ip='10.0.0.1', swit
         controller=RemoteController,
         port=controller_port
     )
-    switches[name] = [
-        net.addSwitch(name + '_s{}'.format(i))
-        for i in range(switch_cnt)
-    ]
+    # switches[name] = [
+    #     net.addSwitch(name + '_s{}'.format(i), dpid=str(dpid_cnt))
+    #     for i in range(switch_cnt)
+    # ]
+    switches[name] = []
+    for i in range(switch_cnt):
+        switches[name].append(net.addSwitch(name + '_s{}'.format(i), dpid=hex(dpid_cnt)[2:]))
+        dpid_cnt += 1
     hosts[name] = [
         net.addHost(name + '_h0', ip=host_ip)
     ]
@@ -163,9 +172,11 @@ if __name__ == "__main__":
     info('*** Starting Distributed SDN-based 5G Core Network\n')
     net.build()
 
+    # Start controllers
     for k, c in controllers.items():
         c.start()
 
+    # Start switches with their controller
     for k, comp in switches.items():
         for switch in comp:
             switch.start([controllers[k]])
@@ -182,6 +193,9 @@ if __name__ == "__main__":
     # net.pingAll()
 
     info('*** Running CLI\n')
+    # info(pprint.pformat(controllers, indent=4) + '\n')
+    # info(pprint.pformat(switches, indent=4) + '\n')
+    # info(pprint.pformat(hosts, indent=4) + '\n')
     CLI(net)
 
     info('*** Stopping network')
