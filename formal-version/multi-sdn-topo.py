@@ -8,7 +8,6 @@ from mininet.log import setLogLevel, info
 
 # import mininet.ns3
 # from mininet.ns3 import SimpleLink
-import pprint
 
 controllers = {}
 switches = {}
@@ -196,8 +195,9 @@ if __name__ == "__main__":
     # info(pprint.pformat(controllers, indent=4) + '\n')
     # info(pprint.pformat(switches, indent=4) + '\n')
     # info(pprint.pformat(hosts, indent=4) + '\n')
-    CLI(net)
+    cli = CLI(net)
+    cli.do_sh('uam_h0 echo hello')
 
-    info('*** Stopping network')
+    info('*** Stopping network\n')
     # mininet.ns3.clear()
     net.stop()
