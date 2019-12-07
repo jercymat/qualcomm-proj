@@ -24,18 +24,19 @@ transfer_data = json.dumps(data).encode('utf-8')
 headers = {
     'content-length': str(len(transfer_data)),
     'content-type': 'application/json',
-    'scenario': 'URLLC'
+    'scenario': 'mMTC'
 }
 
 while True:
     conn = HTTP20Connection('{}:{}'.format(HOST, SEND_PORT))
 
     # Add SHA256 encrypted id to header i.e. sha256('URLLC-PKT-0132')
-    headers['id'] = hashlib.sha256('URLLC-PKT-{:0>4d}'.format(pkt_cnt)).hexdigest()
+    headers['id'] = hashlib.sha256(
+        'mMTC-PKT-{:0>4d}'.format(pkt_cnt)).hexdigest()
 
     TX_TP = time.time().real
     conn.request('POST', '/', headers=headers, body=transfer_data)
-    print('Sending URLLC packet into system')
+    print('Sending mMTC packet into system')
     print('headers: {}'.format(headers))
 
     resp = conn.get_response()

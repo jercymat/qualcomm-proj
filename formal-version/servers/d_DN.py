@@ -6,14 +6,19 @@ import sys
 from h2.connection import H2Connection
 from h2.events import RequestReceived, DataReceived
 
-PORT = sys.argv[1]
+# Test Mode: Listen localhost:9003
+# Otherwise: Listen 10.0.5.1:8080
+TEST_MODE = True if len(sys.argv) == 2 and sys.argv[1] == '--test' else False
+HOST = 'localhost' if TEST_MODE else '10.0.5.1'
+LISTEN_PORT = 9003 if TEST_MODE else 8080
 
 
 class RecieverConnection(object):
     "An object of simple HTTP/2 connection"
 
-    def __init__(self, sock):
+    def __init__(self, sock, TEST_MODE):
         self.sock = sock
+        self.TEST_MODE = TEST_MODE
         self.conn = H2Connection(client_side=False)
         self.rx_headers = False
         self.stream_id = False
@@ -63,14 +68,14 @@ class RecieverConnection(object):
         )
 
 
-print('HTTP/2 server started at http://0.0.0.0:{}'.format(PORT))
+print('HTTP/2 server started at http://{}:{}'.format('localhost' if TEST_MODE else '10.0.5.1', LISTEN_PORT))
 
-sock = eventlet.listen(('0.0.0.0', int(PORT)))
+sock = eventlet.listen(('0.0.0.0', int(LISTEN_PORT)))
 pool = eventlet.GreenPool()
 
 while True:
     try:
-        connection = RecieverConnection(sock.accept()[0])
+        connection = RecieverConnection(sock.accept()[0], TEST_MODE)
         pool.spawn_n(connection.run_forever)
     except(SystemExit, KeyboardInterrupt):
         break

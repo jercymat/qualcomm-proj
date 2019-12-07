@@ -5,29 +5,31 @@ from h2.connection import H2Connection
 from h2.events import RequestReceived, DataReceived
 from hyper import HTTP20Connection
 
-PORT = sys.argv[1]
-FWD_HOST = sys.argv[2]
-FWD_PORT = sys.argv[3]
+# Test Mode:    Listen: localhost:9001
+#               Data Plane: localhost:9002
+#               Control Plane: localhost:9004,9005,9006
+# Otherwise:    Listen: 10.0.1.1:8080
+#               Data Plane: 10.0.4.1:8080
+#               Control Plane: 10.0.2.1,2,3:8080
+TEST_MODE = True if len(sys.argv) == 2 and sys.argv[1] == '--test' else False
+LISTEN_PORT = 9001 if TEST_MODE else 8080
 
 
-class FowarderConnection(object):
+class UAMConnection(object):
     "An object of simple HTTP/2 connection"
 
-    def __init__(self, sock, fwd_host, fwd_port):
+    def __init__(self, sock, TEST_MODE):
         self.sock = sock
-        self.fwd_host = fwd_host
-        self.fwd_port = fwd_port
+        self.TEST_MODE = TEST_MODE
+
         self.conn = H2Connection(client_side=False)
 
-        # Space for incoming request headers and body
+        # Packet datas
         self.rx_headers = False
         self.rx_body = False
+        self.rx_scenario = False
         self.stream_id = False
-        # Sapce for response headers and body
-        self.res_headers = False
-        self.res_rxts = False
-
-        print('new socket')
+        self.res_rxts = False  # rx-timestamp from data network
 
     def run_forever(self):
         self.conn.initiate_connection()
@@ -43,23 +45,21 @@ class FowarderConnection(object):
             for event in events:
                 if isinstance(event, RequestReceived):
                     self.rx_headers = event.headers
+                    self.rx_scenario = str(dict(self.rx_headers)['scenario'])
                     self.stream_id = event.stream_id
-                    print(dict(self.rx_headers))
                 elif isinstance(event, DataReceived):
                     self.rx_body = event.data
-                    print(self.rx_body)
 
             # Foward request, wait for its response, then send response to where this request from
-            if self.rx_headers and self.rx_body:
-                self.foward_request()
+            if self.rx_headers and self.rx_body and self.rx_scenario:
+                self.foward_data_plane_packet()
+                self.send_control_plane_packet()
                 self.send_response()
                 print('----------')
 
             data_to_send = self.conn.data_to_send()
             if data_to_send:
                 self.sock.sendall(data_to_send)
-
-            # self.conn.end_stream(self.stream_id)
 
     def send_response(self):
         self.conn.send_headers(
@@ -78,25 +78,63 @@ class FowarderConnection(object):
             end_stream=True
         )
 
-    def foward_request(self):
-        send_conn = HTTP20Connection('{}:{}'.format(self.fwd_host, self.fwd_port))
-        send_conn.request('POST', '/', headers=dict(self.rx_headers), body=self.rx_body)
+    def send_control_plane_packet(self):
+        "Generate a control plane packet and send to NFV Services"
+        ip = {
+            'URLLC': 'localhost:9004',
+            'eMBB': 'localhost:9005',
+            'mMTC': 'localhost:9006'
+        } if self.TEST_MODE else {
+            'URLLC': '10.0.2.1:8080',
+            'eMBB': '10.0.2.2:8080',
+            'mMTC': '10.0.2.3:8080'
+        }
+        scenario = self.rx_scenario
+        send_headers = {
+            'id': str(dict(self.rx_headers)['id'])
+        }
+        send_conn = HTTP20Connection(ip[scenario])
+        # debug
+        print('At {}'.format(ip[scenario]))
+        print('Header: {}'.format(send_headers))
+        send_conn.request('GET', '/', headers=send_headers)
         resp = send_conn.get_response()
         if resp:
-            print('Fowarded this request and got response')
+            print('Sent control plane packet to NFV {} Service'.format(scenario))
+            print('At {}'.format(ip[scenario]))
+            print('Header: {}'.format(send_headers))
+            print('Response: {}'.format(resp.read()))
+
+    def foward_data_plane_packet(self):
+        "Duplicate a data plane packet and send to UPF"
+        upf_ip = 'localhost:9002' if self.TEST_MODE else '10.0.4.1:8080'
+        fw_headers = {
+            'content-length': str(len(self.rx_body)),
+            'content-type': 'application/json',
+            'id': str(dict(self.rx_headers)['id']),
+            'plane': 'user'
+        }
+        send_conn = HTTP20Connection('{}'.format(upf_ip))
+        send_conn.request('POST', '/', headers=fw_headers, body=self.rx_body)
+        resp = send_conn.get_response()
+        if resp:
+            print('Fowarded packet to UPF')
+            print('Header: {}'.format(fw_headers))
+            print('Body: {}'.format(self.rx_body))
             self.res_body = resp.read()
+            print('Response: {}'.format(self.res_body))
             self.res_rxts = resp.headers['rx-timestamp'][0]
 
 
-print('HTTP/2 server started at http://0.0.0.0:{}'.format(PORT))
-print('Packets will foward to   http://{}:{}'.format(FWD_HOST, FWD_PORT))
+print('UAM server started at http://{}:{}'.format('0.0.0.0' if TEST_MODE else '10.0.1.1', LISTEN_PORT))
+print('Packets will foward to {}'.format('test server' if TEST_MODE else 'NFVSM'))
 
-sock = eventlet.listen(('0.0.0.0', int(PORT)))
+sock = eventlet.listen(('0.0.0.0', int(LISTEN_PORT)))
 pool = eventlet.GreenPool()
 
 while True:
     try:
-        connection = FowarderConnection(sock.accept()[0], FWD_HOST, FWD_PORT)
+        connection = UAMConnection(sock.accept()[0], TEST_MODE)
         pool.spawn_n(connection.run_forever)
     except(SystemExit, KeyboardInterrupt):
         break
