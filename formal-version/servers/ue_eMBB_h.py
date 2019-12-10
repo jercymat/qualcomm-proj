@@ -17,7 +17,7 @@ pkt_per_s = 20
 expr_time = 10
 
 data = {
-    'Content{}'.format(x): 'NCCUCS mclab testing {}'.format(x) for x in range(1, 11)
+    'Content {}'.format(x): 'NCCUCS mclab testing {}'.format(x) for x in range(1, 51)
 }
 transfer_data = json.dumps(data).encode('utf-8')
 headers = {
