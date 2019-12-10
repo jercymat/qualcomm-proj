@@ -15,13 +15,16 @@ TEST_MODE = True if len(sys.argv) == 2 and sys.argv[1] == '--test' else False
 LISTEN_PORT = 9006 if TEST_MODE else 8080
 SEND_PORT = 9010 if TEST_MODE else 8080
 
+LOCK = threading.Lock()
+
 
 class NFVeMBBConnection(object):
     "An object of simple HTTP/2 connection"
 
-    def __init__(self, sock, TEST_MODE):
+    def __init__(self, sock, TEST_MODE, lock):
         self.sock = sock
         self.TEST_MODE = TEST_MODE
+        self.lock = lock
         self.conn = H2Connection(client_side=False)
 
         # Space for incoming request headers
@@ -43,13 +46,11 @@ class NFVeMBBConnection(object):
                 if isinstance(event, RequestReceived):
                     self.rx_headers = event.headers
                     self.stream_id = event.stream_id
-                    print(dict(self.rx_headers))
 
             # Foward request, wait for its response, then send response to where this request from
             if self.rx_headers:
                 self.send_response()
                 self.foward_request()
-                print('----------')
 
             data_to_send = self.conn.data_to_send()
             if data_to_send:
@@ -91,11 +92,14 @@ class NFVeMBBConnection(object):
             'POST', '/', headers=dict(self.rx_headers), body=fw_body)
         resp = send_conn.get_response()
         if resp:
+            self.lock.acquire()
             print('Fowarded packet to SBAES')
             self.res_body = resp.read()
-            print('Header: {}'.format(dict(self.rx_headers)))
-            print('Body: {}'.format(fw_body))
+            print('FW Header: {}'.format(dict(self.rx_headers)))
+            print('FW Body: {}'.format(fw_body))
             print('Response: {}'.format(self.res_body))
+            print('==========FW')
+            self.lock.release()
 
 
 print('NFV Service mMTC server started at http://{}:{}'.format(
@@ -110,7 +114,7 @@ sock.listen(5)
 
 while True:
     try:
-        connection = NFVeMBBConnection(sock.accept()[0], TEST_MODE)
+        connection = NFVeMBBConnection(sock.accept()[0], TEST_MODE, LOCK)
         th = threading.Thread(target=connection.run_forever)
         th.start()
     except(SystemExit, KeyboardInterrupt):

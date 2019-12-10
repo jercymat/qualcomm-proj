@@ -44,6 +44,7 @@ class RecieverConnection(object):
                     print(event.data)
 
             if self.rx_headers:
+                print('==========DN')
                 self.send_response()
 
             data_to_send = self.conn.data_to_send()

@@ -14,13 +14,16 @@ LISTEN_PORT = 9011 if TEST_MODE else 8080
 
 # SBA Entity Running Mode: FAST, REGULAR, WAITABLE
 
+LOCK = threading.Lock()
+
 
 class SBASMFConnection(object):
     "An object of simple HTTP/2 connection"
 
-    def __init__(self, sock, TEST_MODE):
+    def __init__(self, sock, TEST_MODE, lock):
         self.sock = sock
         self.TEST_MODE = TEST_MODE
+        self.lock = lock
         self.conn = H2Connection(client_side=False)
 
         # Space for incoming request headers
@@ -58,7 +61,6 @@ class SBASMFConnection(object):
                     self.foward_request()
                 else:
                     print('Fowarding Failed.')
-                print('----------')
 
             data_to_send = self.conn.data_to_send()
             if data_to_send:
@@ -76,8 +78,12 @@ class SBASMFConnection(object):
         # Fill into fowarding body
         self.fw_body.setdefault('RESULT', {})
         self.fw_body['RESULT']['SMF'] = True  # Always gives True for testing
+        self.lock.acquire()
         print('Recieved Packet.\nMode: {}'.format(self.rx_config))
-        print('Foward Body: {}'.format(self.fw_body))
+        print('RX Header: {}'.format(self.rx_headers))
+        print('RX Body: {}'.format(body_json))
+        print('==========RX')
+        self.lock.release()
 
     def send_response(self):
         body = json.dumps(
@@ -108,11 +114,14 @@ class SBASMFConnection(object):
         send_conn.request('POST', '/', headers=fw_header, body=fw_body)
         resp = send_conn.get_response()
         if resp:
+            self.lock.acquire()
             print('Fowarded packet to UPF at http://{}'.format(fw_table))
             self.res_body = resp.read()
-            print('Header: {}'.format(dict(self.rx_headers)))
-            print('Body: {}'.format(fw_body))
+            print('FW Header: {}'.format(dict(self.rx_headers)))
+            print('FW Body: {}'.format(fw_body))
             print('Response: {}'.format(self.res_body))
+            print('==========FW')
+            self.lock.release()
 
 
 print('SBA Entity SMF server started at http://{}:{}'.format(
@@ -125,7 +134,7 @@ sock.listen(5)
 
 while True:
     try:
-        connection = SBASMFConnection(sock.accept()[0], TEST_MODE)
+        connection = SBASMFConnection(sock.accept()[0], TEST_MODE, LOCK)
         th = threading.Thread(target=connection.run_forever)
         th.start()
     except(SystemExit, KeyboardInterrupt):

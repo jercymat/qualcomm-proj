@@ -14,13 +14,16 @@ LISTEN_PORT = 9007 if TEST_MODE else 8080
 
 # SBA Entity Running Mode: FAST, REGULAR, WAITABLE
 
+LOCK = threading.Lock()
+
 
 class SBANRFConnection(object):
     "An object of simple HTTP/2 connection"
 
-    def __init__(self, sock, TEST_MODE):
+    def __init__(self, sock, TEST_MODE, lock):
         self.sock = sock
         self.TEST_MODE = TEST_MODE
+        self.lock = lock
         self.conn = H2Connection(client_side=False)
 
         # Space for incoming request headers
@@ -58,7 +61,6 @@ class SBANRFConnection(object):
                     self.foward_request()
                 else:
                     print('Fowarding Failed.')
-                print('----------')
 
             data_to_send = self.conn.data_to_send()
             if data_to_send:
@@ -84,8 +86,12 @@ class SBANRFConnection(object):
         self.fw_body['SBA_ENTITY'] = ents
         self.fw_body['MODE'] = confs
         self.fw_body['RESULT']['NRF'] = True  # Always gives True for testing
+        self.lock.acquire()
         print('Recieved Packet.\nMode: {}'.format(self.rx_config))
-        print('Foward Body: {}'.format(self.fw_body))
+        print('RX Header: {}'.format(self.rx_headers))
+        print('RX Body: {}'.format(body_json))
+        print('==========RX')
+        self.lock.release()
 
     def send_response(self):
         body = json.dumps(
@@ -133,12 +139,14 @@ class SBANRFConnection(object):
             'POST', '/', headers=dict(self.rx_headers), body=fw_body)
         resp = send_conn.get_response()
         if resp:
-            print(
-                'Fowarded packet to SBA Entity {} at http://{}'.format(next_ent, fw_table[next_ent]))
+            self.lock.acquire()
+            print('Fowarded packet to SBA Entity {} at http://{}'.format(next_ent, fw_table[next_ent]))
             self.res_body = resp.read()
-            print('Header: {}'.format(dict(self.rx_headers)))
-            print('Body: {}'.format(fw_body))
+            print('FW Header: {}'.format(dict(self.rx_headers)))
+            print('FW Body: {}'.format(fw_body))
             print('Response: {}'.format(self.res_body))
+            print('==========FW')
+            self.lock.release()
 
 
 print('SBA Entity NRF server started at http://{}:{}'.format(
@@ -151,7 +159,7 @@ sock.listen(5)
 
 while True:
     try:
-        connection = SBANRFConnection(sock.accept()[0], TEST_MODE)
+        connection = SBANRFConnection(sock.accept()[0], TEST_MODE, LOCK)
         th = threading.Thread(target=connection.run_forever)
         th.start()
     except(SystemExit, KeyboardInterrupt):

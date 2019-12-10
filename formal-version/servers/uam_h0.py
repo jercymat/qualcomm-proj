@@ -15,14 +15,16 @@ from hyper import HTTP20Connection
 TEST_MODE = True if len(sys.argv) == 2 and sys.argv[1] == '--test' else False
 LISTEN_PORT = 9001 if TEST_MODE else 8080
 
+LOCK = threading.Lock()
+
 
 class UAMConnection(object):
     "An object of simple HTTP/2 connection"
 
-    def __init__(self, sock, TEST_MODE):
+    def __init__(self, sock, TEST_MODE, lock):
         self.sock = sock
         self.TEST_MODE = TEST_MODE
-
+        self.lock = lock
         self.conn = H2Connection(client_side=False)
 
         # Packet datas
@@ -56,7 +58,6 @@ class UAMConnection(object):
                 self.foward_data_plane_packet()
                 self.send_control_plane_packet()
                 self.send_response()
-                print('----------')
 
             data_to_send = self.conn.data_to_send()
             if data_to_send:
@@ -95,16 +96,15 @@ class UAMConnection(object):
             'id': str(dict(self.rx_headers)['id'])
         }
         send_conn = HTTP20Connection(ip[scenario])
-        # debug
-        print('At {}'.format(ip[scenario]))
-        print('Header: {}'.format(send_headers))
         send_conn.request('GET', '/', headers=send_headers)
         resp = send_conn.get_response()
         if resp:
-            print('Sent control plane packet to NFV {} Service'.format(scenario))
-            print('At {}'.format(ip[scenario]))
-            print('Header: {}'.format(send_headers))
+            self.lock.acquire()
+            print('Sent control plane packet to NFV {} Service at {}'.format(scenario, ip[scenario]))
+            print('CP FW Header: {}'.format(send_headers))
             print('Response: {}'.format(resp.read()))
+            print('==========CP-FW')
+            self.lock.release()
 
     def foward_data_plane_packet(self):
         "Duplicate a data plane packet and send to UPF"
@@ -119,12 +119,15 @@ class UAMConnection(object):
         send_conn.request('POST', '/', headers=fw_headers, body=self.rx_body)
         resp = send_conn.get_response()
         if resp:
-            print('Fowarded packet to UPF')
-            print('Header: {}'.format(fw_headers))
-            print('Body: {}'.format(self.rx_body))
+            self.lock.acquire()
+            print('Fowarded User Plane packet to UPF')
+            print('UP FW Header: {}'.format(fw_headers))
+            print('UP FW Body: {}'.format(self.rx_body))
             self.res_body = resp.read()
             print('Response: {}'.format(self.res_body))
             self.res_rxts = resp.headers['rx-timestamp'][0]
+            print('==========UP-FW')
+            self.lock.release()
 
 
 print('UAM server started at http://{}:{}'.format('0.0.0.0' if TEST_MODE else '10.0.1.1', LISTEN_PORT))
@@ -137,7 +140,7 @@ sock.listen(5)
 
 while True:
     try:
-        connection = UAMConnection(sock.accept()[0], TEST_MODE)
+        connection = UAMConnection(sock.accept()[0], TEST_MODE, LOCK)
         th = threading.Thread(target=connection.run_forever)
         th.start()
     except(SystemExit, KeyboardInterrupt):
