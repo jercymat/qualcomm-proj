@@ -1,6 +1,7 @@
-import eventlet
 import sys
 import json
+import threading
+import socket
 
 from h2.connection import H2Connection
 from h2.events import RequestReceived
@@ -75,23 +76,14 @@ class NFVURLLCConnection(object):
     def foward_request(self):
         send_conn = HTTP20Connection('localhost:9010' if self.TEST_MODE else '10.0.3.4:8080')
         fw_body = json.dumps({
-            'SBA_ENTITY': ['AMF', 'AUSF', 'UDM', 'SMF'],
-            # 'SBA_ENTITY': ['AMF', 'AUSF', 'UDM', 'NRF', 'PCF', 'AF', 'SMF'],
+            'SBA_ENTITY': ['AMF', 'NRF', 'AUSF', 'UDM', 'SMF'],
             'MODE': {
                 'AMF': 'FAST',
+                'NRF': 'FAST',
                 'AUSF': 'FAST',
                 'UDM': 'FAST',
                 'SMF': 'FAST'
             }
-            # 'MODE': {
-            #     'AMF': 'FAST',
-            #     'AUSF': 'FAST',
-            #     'UDM': 'FAST',
-            #     'NRF': 'FAST',
-            #     'PCF': 'FAST',
-            #     'AF': 'FAST',
-            #     'SMF': 'FAST'
-            # }
         }).encode('utf-8')
         send_conn.request('POST', '/', headers=dict(self.rx_headers), body=fw_body)
         resp = send_conn.get_response()
@@ -106,12 +98,15 @@ class NFVURLLCConnection(object):
 print('NFV Service URLLC server started at http://{}:{}'.format('0.0.0.0' if TEST_MODE else '10.0.2.1', LISTEN_PORT))
 print('Packet will foward to SBA Entity AMF at http://{}:{}'.format('0.0.0.0' if TEST_MODE else '10.0.3.4', SEND_PORT))
 
-sock = eventlet.listen(('0.0.0.0', int(LISTEN_PORT)))
-pool = eventlet.GreenPool()
+sock = socket.socket()
+sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+sock.bind(('0.0.0.0', int(LISTEN_PORT)))
+sock.listen(5)
 
 while True:
     try:
         connection = NFVURLLCConnection(sock.accept()[0], TEST_MODE)
-        pool.spawn_n(connection.run_forever)
+        th = threading.Thread(target=connection.run_forever)
+        th.start()
     except(SystemExit, KeyboardInterrupt):
         break

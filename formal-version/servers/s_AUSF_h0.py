@@ -1,6 +1,7 @@
-import eventlet
 import sys
 import json
+import threading
+import socket
 
 from h2.connection import H2Connection
 from h2.events import RequestReceived, DataReceived
@@ -142,12 +143,15 @@ class SBAAUSFConnection(object):
 print('SBA Entity AMF server started at http://{}:{}'.format(
     '0.0.0.0' if TEST_MODE else '10.0.3.2', LISTEN_PORT))
 
-sock = eventlet.listen(('0.0.0.0', int(LISTEN_PORT)))
-pool = eventlet.GreenPool()
+sock = socket.socket()
+sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+sock.bind(('0.0.0.0', int(LISTEN_PORT)))
+sock.listen(5)
 
 while True:
     try:
         connection = SBAAUSFConnection(sock.accept()[0], TEST_MODE)
-        pool.spawn_n(connection.run_forever)
+        th = threading.Thread(target=connection.run_forever)
+        th.start()
     except(SystemExit, KeyboardInterrupt):
         break
