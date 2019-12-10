@@ -13,8 +13,8 @@ HOST = 'localhost' if TEST_MODE else '10.0.1.1'
 SEND_PORT = 9001 if TEST_MODE else 8080
 
 pkt_cnt = 1
-pkt_per_s = 5
-expr_time = 10
+pkt_per_s = 1
+expr_time = 1
 
 data = {
     'Content': 'NCCUCS mclab testing'

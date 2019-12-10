@@ -13,8 +13,8 @@ HOST = 'localhost' if TEST_MODE else '10.0.1.1'
 SEND_PORT = 9001 if TEST_MODE else 8080
 
 pkt_cnt = 1
-pkt_per_s = 20
-expr_time = 10
+pkt_per_s = 200
+expr_time = 1
 
 data = {
     'Content {}'.format(x): 'NCCUCS mclab testing {}'.format(x) for x in range(1, 51)
