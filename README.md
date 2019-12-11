@@ -1,7 +1,20 @@
 # SDN-based Network Slicing Platform of 5G Core Network
 An SDN-based solution of Network Slicing in 5G Service Based Architecture (SBA) core network, constructed with multiple SDN subsystems. With full SBA Entities implementation, we can provide network slices of 5G scenarios (URLLC, eMBB, mMTC) for 5G UEs to comsume SBA core network resources.
+## Features
+* Built with multiple SDN controller-switch subsystems
+* Easy to scale and load balance inside subsystems, and free to add new subsystems into the platform
+* Same structure of 5G core network and transmitting protocols as 3GPP defines
+## Table of Contents
+* [Getting Started](#getting-started)
+  * [Requirements](#requirements)
+  * [Dependencies](#dependencies)
+  * [Installation](#installation)
+* [Deployment](#deployment)
+* [Running](#running)
+* [Authors](#authors)
+* [Declaration](#declaration)
 ## Getting Started
-### Requirememts
+### Requirements
 * Ubuntu 14.04↑
 * Python 2.7 (2.7.12↑)
 ### Dependencies
@@ -85,5 +98,8 @@ ue_eMBB_h python ./servers/ue_eMBB_h
 ue_mMTC_h python ./servers/ue_mMTC_h
 ```
 Enjoy.
+## Authors
+* **Han-Hsuan Lin** - *Dept. of computer science, National Chengchi University* - [105703004@nccu.edu.tw](mailto:105703004@nccu.edu.tw)
+* **Yu-Chiao Hsu** - *Dept. of computer science, National Chengchi University* - [104753036@nccu.edu.tw](mailto:104753036@nccu.edu.tw)
 ## Declaration
 This system is built for Qualcomm Taiwan University Research Program.
